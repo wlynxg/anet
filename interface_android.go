@@ -101,7 +101,7 @@ func linkFlags(rawFlags uint32) Flags {
 // network interfaces. Otherwise it returns addresses for a specific
 // interface.
 func interfaceAddrTable(ifi *Interface) ([]net.Addr, error) {
-	tab, err := syscall.NetlinkRIB(syscall.RTM_GETADDR, syscall.AF_UNSPEC)
+	tab, err := NetlinkRIB(syscall.RTM_GETADDR, syscall.AF_UNSPEC)
 	if err != nil {
 		return nil, os.NewSyscallError("netlinkrib", err)
 	}
