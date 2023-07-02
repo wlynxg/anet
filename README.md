@@ -1,3 +1,4 @@
+## Introduction
 In response to the modifications made to the permissions for accessing system MAC addresses in Android 11, ordinary applications encounter several main issues when using NETLINK sockets:
 
 - Not allowing bind operations on `NETLINK` sockets.
@@ -23,3 +24,96 @@ The specific fix logic includes:
 
 Removing the `Bind()` operation on `Netlink` sockets in the `NetlinkRIB()` function.
 Using `ioctl` based on the Index number returned by `RTM_GETADDR` to retrieve the network card's name, MTU, and flags.
+
+
+
+
+
+## Test Code
+### net.Interface()
+use `net.Interface()`:
+```go
+func RawInterface() {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, i := range interfaces {
+		log.Println(i)
+	}
+}
+```
+result:
+```
+panic: route ip+net: netlinkrib: permission denied
+```
+
+use `anet.Interface()`:
+```go
+func AnetInterface() {
+	interfaces, err := anet.Interfaces()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, i := range interfaces {
+		log.Println(i)
+	}
+}
+```
+
+result:
+```
+{1 65536 lo  up|loopback|running}
+{15 1400 rmnet_data1  up|running}
+{24 1500 wlan0  up|broadcast|multicast|running}
+{3 1500 dummy0  up|broadcast|running}
+{4 1500 ifb0  up|broadcast|running}
+{5 1500 ifb1  up|broadcast|running}
+{12 1500 ifb2  up|broadcast|running}
+{14 1500 rmnet_data0  up|running}
+{16 1400 rmnet_data2  up|running}
+{17 1400 rmnet_data3  up|running}
+```
+
+### net.InterfaceAddrs()
+use `net.InterfaceAddrs()`:
+```go
+func NetInterfaceAddrs() {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, addr := range addrs {
+		log.Println(addr)
+	}
+}
+```
+result: 
+```
+panic: route ip+net: netlinkrib: permission denied
+```
+
+use `anet.InterfaceAddrs()`:
+```go
+func AnetInterfaceAddrs() {
+	addrs, err := anet.InterfaceAddrs()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, addr := range addrs {
+		log.Println(addr)
+	}
+}
+```
+result:
+```
+127.0.0.1/8
+::1/128
+...
+192.168.6.143/24
+fe80::7e4f:4446:eb3:1eb8/64
+```
