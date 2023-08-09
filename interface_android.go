@@ -2,18 +2,46 @@ package anet
 
 import (
 	"bytes"
+	"errors"
 	"net"
 	"os"
 	"syscall"
 	"unsafe"
 )
 
+var (
+	errNoSuchInterface = errors.New("no such network interface")
+)
+
 type ifReq [40]byte
+
+// Interfaces returns a list of the system's network interfaces.
+func Interfaces() ([]net.Interface, error) {
+	ift, err := interfaceTable(0)
+	if err != nil {
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
+	}
+	// TODO: zoneCache implementation
+	return ift, nil
+}
+
+// InterfaceAddrs returns a list of the system's unicast interface
+// addresses.
+//
+// The returned list does not identify the associated interface; use
+// Interfaces and Interface.Addrs for more detail.
+func InterfaceAddrs() ([]net.Addr, error) {
+	ifat, err := interfaceAddrTable(nil)
+	if err != nil {
+		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
+	}
+	return ifat, err
+}
 
 // If the ifindex is zero, interfaceTable returns mappings of all
 // network interfaces. Otherwise it returns a mapping of a specific
 // interface.
-func interfaceTable(ifindex int) ([]Interface, error) {
+func interfaceTable(ifindex int) ([]net.Interface, error) {
 	tab, err := NetlinkRIB(syscall.RTM_GETADDR, syscall.AF_UNSPEC)
 	if err != nil {
 		return nil, os.NewSyscallError("netlinkrib", err)
@@ -23,7 +51,7 @@ func interfaceTable(ifindex int) ([]Interface, error) {
 		return nil, os.NewSyscallError("parsenetlinkmessage", err)
 	}
 
-	var ift []Interface
+	var ift []net.Interface
 	im := make(map[uint32]struct{})
 loop:
 	for _, m := range msgs {
@@ -53,8 +81,8 @@ loop:
 	return ift, nil
 }
 
-func newLink(ifam *syscall.IfAddrmsg) *Interface {
-	ift := &Interface{Index: int(ifam.Index)}
+func newLink(ifam *syscall.IfAddrmsg) *net.Interface {
+	ift := &net.Interface{Index: int(ifam.Index)}
 
 	name, err := indexToName(ifam.Index)
 	if err != nil {
@@ -76,25 +104,25 @@ func newLink(ifam *syscall.IfAddrmsg) *Interface {
 	return ift
 }
 
-func linkFlags(rawFlags uint32) Flags {
-	var f Flags
+func linkFlags(rawFlags uint32) net.Flags {
+	var f net.Flags
 	if rawFlags&syscall.IFF_UP != 0 {
-		f |= FlagUp
+		f |= net.FlagUp
 	}
 	if rawFlags&syscall.IFF_RUNNING != 0 {
-		f |= FlagRunning
+		f |= net.FlagRunning
 	}
 	if rawFlags&syscall.IFF_BROADCAST != 0 {
-		f |= FlagBroadcast
+		f |= net.FlagBroadcast
 	}
 	if rawFlags&syscall.IFF_LOOPBACK != 0 {
-		f |= FlagLoopback
+		f |= net.FlagLoopback
 	}
 	if rawFlags&syscall.IFF_POINTOPOINT != 0 {
-		f |= FlagPointToPoint
+		f |= net.FlagPointToPoint
 	}
 	if rawFlags&syscall.IFF_MULTICAST != 0 {
-		f |= FlagMulticast
+		f |= net.FlagMulticast
 	}
 	return f
 }
@@ -102,7 +130,7 @@ func linkFlags(rawFlags uint32) Flags {
 // If the ifi is nil, interfaceAddrTable returns addresses for all
 // network interfaces. Otherwise it returns addresses for a specific
 // interface.
-func interfaceAddrTable(ifi *Interface) ([]net.Addr, error) {
+func interfaceAddrTable(ifi *net.Interface) ([]net.Addr, error) {
 	tab, err := NetlinkRIB(syscall.RTM_GETADDR, syscall.AF_UNSPEC)
 	if err != nil {
 		return nil, os.NewSyscallError("netlinkrib", err)
@@ -112,7 +140,7 @@ func interfaceAddrTable(ifi *Interface) ([]net.Addr, error) {
 		return nil, os.NewSyscallError("parsenetlinkmessage", err)
 	}
 
-	var ift []Interface
+	var ift []net.Interface
 	if ifi == nil {
 		var err error
 		ift, err = interfaceTable(0)
@@ -127,7 +155,7 @@ func interfaceAddrTable(ifi *Interface) ([]net.Addr, error) {
 	return ifat, nil
 }
 
-func addrTable(ift []Interface, ifi *Interface, msgs []syscall.NetlinkMessage) ([]net.Addr, error) {
+func addrTable(ift []net.Interface, ifi *net.Interface, msgs []syscall.NetlinkMessage) ([]net.Addr, error) {
 	var ifat []net.Addr
 loop:
 	for _, m := range msgs {
@@ -185,18 +213,13 @@ func newAddr(ifam *syscall.IfAddrmsg, attrs []syscall.NetlinkRouteAttr) net.Addr
 	return nil
 }
 
-// interfaceMulticastAddrTable returns addresses for a specific
-// interface.
-func interfaceMulticastAddrTable(ifi *Interface) ([]net.Addr, error) {
-	return nil, nil
-}
-
-func parseProcNetIGMP(path string, ifi *Interface) []net.Addr {
-	return nil
-}
-
-func parseProcNetIGMP6(path string, ifi *Interface) []net.Addr {
-	return nil
+func interfaceByIndex(ift []net.Interface, index int) (*net.Interface, error) {
+	for _, ifi := range ift {
+		if index == ifi.Index {
+			return &ifi, nil
+		}
+	}
+	return nil, errNoSuchInterface
 }
 
 func ioctl(fd int, req uint, arg unsafe.Pointer) error {
@@ -246,7 +269,7 @@ func nameToMTU(name string) (int, error) {
 	return int(*(*int32)(unsafe.Pointer(&ifr[syscall.IFNAMSIZ]))), nil
 }
 
-func nameToFlags(name string) (Flags, error) {
+func nameToFlags(name string) (net.Flags, error) {
 	// Leave room for terminating NULL byte.
 	if len(name) >= syscall.IFNAMSIZ {
 		return 0, syscall.EINVAL
