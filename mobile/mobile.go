@@ -1,9 +1,10 @@
 package mobile
 
 import (
-	"anet"
 	"log"
 	"net"
+
+	"github.com/wlynxg/anet"
 )
 
 func NetInterface() {
