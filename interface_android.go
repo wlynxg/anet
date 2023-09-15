@@ -38,6 +38,16 @@ func InterfaceAddrs() ([]net.Addr, error) {
 	return ifat, err
 }
 
+// InterfaceAddrsByInterface returns a list of the system's unicast 
+// interface addresses by specific interface.
+func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
+	ifat, err := interfaceAddrTable(ifi)
+	if err != nil {
+		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
+	}
+	return ifat, err
+}
+
 // If the ifindex is zero, interfaceTable returns mappings of all
 // network interfaces. Otherwise it returns a mapping of a specific
 // interface.
