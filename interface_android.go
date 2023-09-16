@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	errNoSuchInterface = errors.New("no such network interface")
+	errNoSuchInterface  = errors.New("no such network interface")
+	errInvalidInterface = errors.New("invalid network interface")
 )
 
 type ifReq [40]byte
@@ -38,9 +39,13 @@ func InterfaceAddrs() ([]net.Addr, error) {
 	return ifat, err
 }
 
-// InterfaceAddrsByInterface returns a list of the system's unicast 
+// InterfaceAddrsByInterface returns a list of the system's unicast
 // interface addresses by specific interface.
 func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
+	if ifi == nil {
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterface}
+	}
+
 	ifat, err := interfaceAddrTable(ifi)
 	if err != nil {
 		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
