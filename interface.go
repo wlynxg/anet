@@ -20,3 +20,9 @@ func Interfaces() ([]net.Interface, error) {
 func InterfaceAddrs() ([]net.Addr, error) {
 	return net.InterfaceAddrs()
 }
+
+// InterfaceAddrsByInterface returns a list of the system's unicast 
+// interface addresses by specific interface.
+func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
+	return ifi.Addrs()
+}
