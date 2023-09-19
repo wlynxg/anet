@@ -180,13 +180,6 @@ loop:
 		case syscall.RTM_NEWADDR:
 			ifam := (*syscall.IfAddrmsg)(unsafe.Pointer(&m.Data[0]))
 			if len(ift) != 0 || ifi.Index == int(ifam.Index) {
-				if len(ift) != 0 {
-					var err error
-					ifi, err = interfaceByIndex(ift, int(ifam.Index))
-					if err != nil {
-						return nil, err
-					}
-				}
 				attrs, err := syscall.ParseNetlinkRouteAttr(&m)
 				if err != nil {
 					return nil, os.NewSyscallError("parsenetlinkrouteattr", err)
