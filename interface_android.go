@@ -9,7 +9,12 @@ import (
 	"unsafe"
 )
 
+const (
+	android11 = 11
+)
+
 var (
+	androidVersion      uint
 	errNoSuchInterface  = errors.New("no such network interface")
 	errInvalidInterface = errors.New("invalid network interface")
 )
@@ -18,6 +23,10 @@ type ifReq [40]byte
 
 // Interfaces returns a list of the system's network interfaces.
 func Interfaces() ([]net.Interface, error) {
+	if androidVersion > android11 {
+		return net.Interfaces()
+	}
+
 	ift, err := interfaceTable(0)
 	if err != nil {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
@@ -32,6 +41,10 @@ func Interfaces() ([]net.Interface, error) {
 // The returned list does not identify the associated interface; use
 // Interfaces and Interface.Addrs for more detail.
 func InterfaceAddrs() ([]net.Addr, error) {
+	if androidVersion > android11 {
+		return net.InterfaceAddrs()
+	}
+
 	ifat, err := interfaceAddrTable(nil)
 	if err != nil {
 		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
@@ -46,11 +59,22 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterface}
 	}
 
+	if androidVersion > android11 {
+		return ifi.Addrs()
+	}
+
 	ifat, err := interfaceAddrTable(ifi)
 	if err != nil {
 		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
 	}
 	return ifat, err
+}
+
+// SetAndroidVersion set the Android environment in which the program runs.
+// The Android system version number can be obtained through
+// `android.os.Build.VERSION.RELEASE` of the Android framework.
+func SetAndroidVersion(version uint) {
+	androidVersion = version
 }
 
 // If the ifindex is zero, interfaceTable returns mappings of all
