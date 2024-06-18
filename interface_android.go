@@ -23,7 +23,7 @@ type ifReq [40]byte
 
 // Interfaces returns a list of the system's network interfaces.
 func Interfaces() ([]net.Interface, error) {
-	if androidVersion > android11 {
+	if androidVersion < android11 {
 		return net.Interfaces()
 	}
 
@@ -41,7 +41,7 @@ func Interfaces() ([]net.Interface, error) {
 // The returned list does not identify the associated interface; use
 // Interfaces and Interface.Addrs for more detail.
 func InterfaceAddrs() ([]net.Addr, error) {
-	if androidVersion > android11 {
+	if androidVersion < android11 {
 		return net.InterfaceAddrs()
 	}
 
@@ -59,7 +59,7 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterface}
 	}
 
-	if androidVersion > android11 {
+	if androidVersion < android11 {
 		return ifi.Addrs()
 	}
 
