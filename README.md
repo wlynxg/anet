@@ -117,3 +117,6 @@ result:
 192.168.6.143/24
 fe80::7e4f:4446:eb3:1eb8/64
 ```
+
+## Other issues due to #40569
+- #[68082](https://github.com/golang/go/issues/68082)
