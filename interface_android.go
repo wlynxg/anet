@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net"
 	"os"
+	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -14,9 +16,12 @@ const (
 )
 
 var (
-	androidVersion      uint
-	errNoSuchInterface  = errors.New("no such network interface")
-	errInvalidInterface = errors.New("invalid network interface")
+	androidVersion              uint
+	errInvalidInterface         = errors.New("invalid network interface")
+	errInvalidInterfaceIndex    = errors.New("invalid network interface index")
+	errInvalidInterfaceName     = errors.New("invalid network interface name")
+	errNoSuchInterface          = errors.New("no such network interface")
+	errNoSuchMulticastInterface = errors.New("no such multicast network interface")
 )
 
 type ifReq [40]byte
@@ -31,7 +36,9 @@ func Interfaces() ([]net.Interface, error) {
 	if err != nil {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
 	}
-	// TODO: zoneCache implementation
+	if len(ift) != 0 {
+		zoneCache.update(ift, false)
+	}
 	return ift, nil
 }
 
@@ -50,6 +57,50 @@ func InterfaceAddrs() ([]net.Addr, error) {
 		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
 	}
 	return ifat, err
+}
+
+// InterfaceByIndex returns the interface specified by index.
+//
+// On Solaris, it returns one of the logical network interfaces
+// sharing the logical data link; for more precision use
+// InterfaceByName.
+func InterfaceByIndex(index int) (*net.Interface, error) {
+	if androidVersion < android11 {
+		return net.InterfaceByIndex(index)
+	}
+
+	if index <= 0 {
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterfaceIndex}
+	}
+	ift, err := interfaceTable(index)
+	if err != nil {
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
+	}
+	ifi, err := interfaceByIndex(ift, index)
+	if err != nil {
+		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
+	}
+	return ifi, err
+}
+
+// InterfaceByName returns the interface specified by name.
+func InterfaceByName(name string) (*net.Interface, error) {
+	if name == "" {
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterfaceName}
+	}
+	ift, err := interfaceTable(0)
+	if err != nil {
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
+	}
+	if len(ift) != 0 {
+		zoneCache.update(ift, false)
+	}
+	for _, ifi := range ift {
+		if name == ifi.Name {
+			return &ifi, nil
+		}
+	}
+	return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errNoSuchInterface}
 }
 
 // InterfaceAddrsByInterface returns a list of the system's unicast
@@ -75,6 +126,50 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 // `android.os.Build.VERSION.RELEASE` of the Android framework.
 func SetAndroidVersion(version uint) {
 	androidVersion = version
+}
+
+// An ipv6ZoneCache represents a cache holding partial network
+// interface information. It is used for reducing the cost of IPv6
+// addressing scope zone resolution.
+//
+// Multiple names sharing the index are managed by first-come
+// first-served basis for consistency.
+type ipv6ZoneCache struct {
+	sync.RWMutex                // guard the following
+	lastFetched  time.Time      // last time routing information was fetched
+	toIndex      map[string]int // interface name to its index
+	toName       map[int]string // interface index to its name
+}
+
+//go:linkname zoneCache net.zoneCache
+var zoneCache ipv6ZoneCache
+
+// update refreshes the network interface information if the cache was last
+// updated more than 1 minute ago, or if force is set. It reports whether the
+// cache was updated.
+func (zc *ipv6ZoneCache) update(ift []net.Interface, force bool) (updated bool) {
+	zc.Lock()
+	defer zc.Unlock()
+	now := time.Now()
+	if !force && zc.lastFetched.After(now.Add(-60*time.Second)) {
+		return false
+	}
+	zc.lastFetched = now
+	if len(ift) == 0 {
+		var err error
+		if ift, err = interfaceTable(0); err != nil {
+			return false
+		}
+	}
+	zc.toIndex = make(map[string]int, len(ift))
+	zc.toName = make(map[int]string, len(ift))
+	for _, ifi := range ift {
+		zc.toIndex[ifi.Name] = ifi.Index
+		if _, ok := zc.toName[ifi.Index]; !ok {
+			zc.toName[ifi.Index] = ifi.Name
+		}
+	}
+	return true
 }
 
 // If the ifindex is zero, interfaceTable returns mappings of all
