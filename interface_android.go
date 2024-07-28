@@ -38,6 +38,7 @@ func Interfaces() ([]net.Interface, error) {
 	}
 	if len(ift) != 0 {
 		zoneCache.update(ift, false)
+		zoneCacheX.update(ift, false)
 	}
 	return ift, nil
 }
@@ -94,6 +95,7 @@ func InterfaceByName(name string) (*net.Interface, error) {
 	}
 	if len(ift) != 0 {
 		zoneCache.update(ift, false)
+		zoneCacheX.update(ift, false)
 	}
 	for _, ifi := range ift {
 		if name == ifi.Name {
@@ -143,6 +145,9 @@ type ipv6ZoneCache struct {
 
 //go:linkname zoneCache net.zoneCache
 var zoneCache ipv6ZoneCache
+
+//go:linkname zoneCacheX golang.org/x/net/internal/socket.zoneCache
+var zoneCacheX ipv6ZoneCache
 
 // update refreshes the network interface information if the cache was last
 // updated more than 1 minute ago, or if force is set. It reports whether the
