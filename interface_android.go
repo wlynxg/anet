@@ -37,8 +37,8 @@ func Interfaces() ([]net.Interface, error) {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
 	}
 	if len(ift) != 0 {
-		zoneCache.update(ift, false)
-		zoneCacheX.update(ift, false)
+		zoneCache.update(ift, true)
+		zoneCacheX.update(ift, true)
 	}
 	return ift, nil
 }
@@ -94,8 +94,8 @@ func InterfaceByName(name string) (*net.Interface, error) {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
 	}
 	if len(ift) != 0 {
-		zoneCache.update(ift, false)
-		zoneCacheX.update(ift, false)
+		zoneCache.update(ift, true)
+		zoneCacheX.update(ift, true)
 	}
 	for _, ifi := range ift {
 		if name == ifi.Name {
