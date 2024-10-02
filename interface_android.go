@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	android11 = 11
+	android11ApiLevel = 30
 )
 
 var (
-	androidVersion              uint
+	customAndroidApiLevel       = -1
 	errInvalidInterface         = errors.New("invalid network interface")
 	errInvalidInterfaceIndex    = errors.New("invalid network interface index")
 	errInvalidInterfaceName     = errors.New("invalid network interface name")
@@ -28,7 +28,7 @@ type ifReq [40]byte
 
 // Interfaces returns a list of the system's network interfaces.
 func Interfaces() ([]net.Interface, error) {
-	if androidVersion < android11 {
+	if androidApiLevel() < android11ApiLevel {
 		return net.Interfaces()
 	}
 
@@ -49,7 +49,7 @@ func Interfaces() ([]net.Interface, error) {
 // The returned list does not identify the associated interface; use
 // Interfaces and Interface.Addrs for more detail.
 func InterfaceAddrs() ([]net.Addr, error) {
-	if androidVersion < android11 {
+	if androidApiLevel() < android11ApiLevel {
 		return net.InterfaceAddrs()
 	}
 
@@ -66,7 +66,7 @@ func InterfaceAddrs() ([]net.Addr, error) {
 // sharing the logical data link; for more precision use
 // InterfaceByName.
 func InterfaceByIndex(index int) (*net.Interface, error) {
-	if androidVersion < android11 {
+	if androidApiLevel() < android11ApiLevel {
 		return net.InterfaceByIndex(index)
 	}
 
@@ -112,7 +112,7 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterface}
 	}
 
-	if androidVersion < android11 {
+	if androidApiLevel() < android11ApiLevel {
 		return ifi.Addrs()
 	}
 
@@ -126,8 +126,26 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 // SetAndroidVersion set the Android environment in which the program runs.
 // The Android system version number can be obtained through
 // `android.os.Build.VERSION.RELEASE` of the Android framework.
+// If version is 0 the actual version will be detected automatically if possible.
 func SetAndroidVersion(version uint) {
-	androidVersion = version
+	switch {
+	case version == 0:
+		customAndroidApiLevel = -1
+	case version >= 11:
+		customAndroidApiLevel = android11ApiLevel
+	default:
+		customAndroidApiLevel = 0
+	}
+}
+
+func androidApiLevel() int {
+	if customAndroidApiLevel != -1 {
+		// user-provided api level should be used
+		return customAndroidApiLevel
+	}
+
+	// try to autodetect api level
+	return androidDeviceApiLevel()
 }
 
 // An ipv6ZoneCache represents a cache holding partial network
