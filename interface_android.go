@@ -1,8 +1,5 @@
 package anet
 
-// #include <android/api-level.h>
-import "C"
-
 import (
 	"bytes"
 	"errors"
@@ -15,10 +12,11 @@ import (
 )
 
 const (
-	android11ApiLevel = 30
+	android11 = 11
 )
 
 var (
+	androidVersion              uint
 	errInvalidInterface         = errors.New("invalid network interface")
 	errInvalidInterfaceIndex    = errors.New("invalid network interface index")
 	errInvalidInterfaceName     = errors.New("invalid network interface name")
@@ -30,7 +28,7 @@ type ifReq [40]byte
 
 // Interfaces returns a list of the system's network interfaces.
 func Interfaces() ([]net.Interface, error) {
-	if androidApiLevel() < android11ApiLevel {
+	if androidVersion < android11 {
 		return net.Interfaces()
 	}
 
@@ -51,7 +49,7 @@ func Interfaces() ([]net.Interface, error) {
 // The returned list does not identify the associated interface; use
 // Interfaces and Interface.Addrs for more detail.
 func InterfaceAddrs() ([]net.Addr, error) {
-	if androidApiLevel() < android11ApiLevel {
+	if androidVersion < android11 {
 		return net.InterfaceAddrs()
 	}
 
@@ -68,7 +66,7 @@ func InterfaceAddrs() ([]net.Addr, error) {
 // sharing the logical data link; for more precision use
 // InterfaceByName.
 func InterfaceByIndex(index int) (*net.Interface, error) {
-	if androidApiLevel() < android11ApiLevel {
+	if androidVersion < android11 {
 		return net.InterfaceByIndex(index)
 	}
 
@@ -114,7 +112,7 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 		return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errInvalidInterface}
 	}
 
-	if androidApiLevel() < android11ApiLevel {
+	if androidVersion < android11 {
 		return ifi.Addrs()
 	}
 
@@ -123,6 +121,13 @@ func InterfaceAddrsByInterface(ifi *net.Interface) ([]net.Addr, error) {
 		err = &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: err}
 	}
 	return ifat, err
+}
+
+// SetAndroidVersion set the Android environment in which the program runs.
+// The Android system version number can be obtained through
+// `android.os.Build.VERSION.RELEASE` of the Android framework.
+func SetAndroidVersion(version uint) {
+	androidVersion = version
 }
 
 // An ipv6ZoneCache represents a cache holding partial network
@@ -417,18 +422,3 @@ func nameToFlags(name string) (net.Flags, error) {
 
 	return linkFlags(*(*uint32)(unsafe.Pointer(&ifr[syscall.IFNAMSIZ]))), nil
 }
-
-// Returns the API level of the device we're actually running on, or -1 on failure.
-// The returned value is equivalent to the Java Build.VERSION.SDK_INT API.
-var androidApiLevel = func() func() int {
-	var apiLevel int
-	var once sync.Once
-
-	return func() int {
-		once.Do(func() {
-			apiLevel = int(C.android_get_device_api_level())
-		})
-
-		return apiLevel
-	}
-}()
