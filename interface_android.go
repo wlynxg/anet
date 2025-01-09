@@ -161,11 +161,15 @@ type ipv6ZoneCache struct {
 	toName       map[int]string // interface index to its name
 }
 
-//go:linkname zoneCache net.zoneCache
-var zoneCache ipv6ZoneCache
+var zoneCache = ipv6ZoneCache{
+	toIndex: make(map[string]int),
+	toName:  make(map[int]string),
+}
 
-//go:linkname zoneCacheX golang.org/x/net/internal/socket.zoneCache
-var zoneCacheX ipv6ZoneCache
+var zoneCacheX = ipv6ZoneCache{
+	toIndex: make(map[string]int),
+	toName:  make(map[int]string),
+}
 
 // update refreshes the network interface information if the cache was last
 // updated more than 1 minute ago, or if force is set. It reports whether the
